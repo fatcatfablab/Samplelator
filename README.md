@@ -1,7 +1,7 @@
 # Samplelator
 The NYC Makerfaire 2018 FCFL exhibit will be using one or more controllers, and this area is for the code that makes it come alive!
 
-__sketc_colorimeter__
+__sketch_colorimeter__
 
 The directory sketch_colorimeter holds the Arduino code to read an AMS7262 6 channel color sensor. For this version, we use the Adafruit AS726x library to do the actual interfacing. The 6 channels are Violet, Blue, Green, Yellow, Orange, and Red. Because we are also using Neopixels as part of the display output, we primarily use the RGB components when displaying to the Neopixels. However, the actual determination of the color uses all 6 channels.
 
