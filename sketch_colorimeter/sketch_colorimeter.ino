@@ -37,10 +37,10 @@ int pdiodeThreshold = 200;
 #define CHAN_THRESH 6
 
 // TEST TEST TEST: uncomment the following not wait for start/stop signal
-// #define AUTOTRIGGER
+#define AUTOTRIGGER
 
 // TEST TEST TEST: uncomment to display sort by strongest color value
-// #define ORDER_BY_VALUE
+#define ORDER_BY_VALUE
 
 // buffer to hold sensor color values
 uint16_t senseVals[AS726x_NUM_CHANNELS];
@@ -235,7 +235,7 @@ void setup() {
   // Set up serial monitor
   Serial.begin(115200);
   while(!Serial);
-
+  Serial.print("Configuring...");
   // Set up neopixels
   strip.begin();
   // Start with reference colors
