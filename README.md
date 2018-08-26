@@ -12,12 +12,12 @@ The 6 color channels can be thought of as discrete samples of a continuous wavef
 
 __sketch_colorimeter__
 
-The directory sketch_colorimeter holds the Arduino code to read an AMS7262 6 channel color sensor. This is now deprecated sketch_teensy_color.
+The directory sketch_colorimeter holds the Arduino code to read an AMS7262 6 channel color sensor. This is now deprecated  and the directory sketch_teensy_color should be used instead.
 
 __sketch_break_detect__
 
 The break detect sketch is a simple sketch to help debug the light break switch. This switch is used to detect when a color sample should be taken. It consists of an IR led plus detector, which pegs that pass in between to indicate a sample needs to be taken. The signal received is an analog value. Hysteris is applied to the analog signal to debounce the break detection and break restoration values. This sketch was eventually incorporated in the teensy color sketch.
 
-__ketch_analog_scope__
+__sketch_analog_scope__
 
 This utility sketch is a quick and dirty method to display the values read from an analog pin. The display is a 32 bin value, where each bin (or star) represents a value of 8. It is derived from assuming the analog pin has 256 values ranging from 0 to 255, and is divided by 8 to fit the 32 character line display. The triggerring is based off of non-zero values. Theoretically more sophisticated triggering can be added to the logic to capture certain events. This sketch was used to help debug the light break detection device.
