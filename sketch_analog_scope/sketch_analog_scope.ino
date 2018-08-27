@@ -8,7 +8,7 @@
 *  value, and shifting it right by 3, i.e., dividing by 8,  to limit the range from 0 to 63.
 */
 
-int sensorPin = A0;    // select the input pin for the potentiometer
+int sensorPin = A4;    // select the input pin for the potentiometer
 int ledPin = 13;      // select the pin for the LED
   // Pin 13: Arduino has an LED connected on pin 13
   // Pin 11: Teensy 2.0 has the LED on pin 11
@@ -100,7 +100,7 @@ void loop() {
       digitalWrite(ledPin, LOW);
   }
 
-  uint8_t displayValue = (sensorValue >> 3) & 0x3F;
+  unsigned int displayValue = (sensorValue >> 4) & 0x3F;
   if (displayValue == 0) {
     int sumPrevs = 0;
     for (int idx = 0; idx < 4; idx++) {
