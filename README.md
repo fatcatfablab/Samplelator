@@ -2,7 +2,8 @@
 The NYC Makerfaire 2018 FCFL exhibit will be using one or more controllers, and this area is for the code that makes it come alive!
 
 __sketch_motor_control__
-The motor used to spin the platter is controlled by this sketch. We use a Pololu Dual VNH5019 Motor Driver Shield for Arduino to generate the PWM. Note that this requires a separate controller from the teensy (color sensors controller) because the motor control is somewhat independent of the midi stuff, and also because the shield take up many pins from the main controller board.
+
+The motor used to spin the platter is controlled by this sketch. We use a Pololu Dual VNH5019 Motor Driver Shield for Arduino to generate the PWM. Note that this requires a separate microcontroller from the teensy (color sensors controller) because the motor control is somewhat independent of the midi stuff. Also, the teensy was not used since the motor control is not as timing critical in its operations.
 
 __sketch_teensy_color__
 
