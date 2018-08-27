@@ -6,7 +6,11 @@
 
 DualVNH5019MotorShield motors;
 
-int speedPin = A0;    // select the input pin for the potentiometer
+#define MAXSPEED_MOTOR 400    // change this value to the highest speed you want to give the motor controller
+
+#define SPEED_UNIT (MAXSPEED_MOTOR / 1024) // rotary pot read values are 0 to 1023
+
+int speedPin = A4;    // select the input pin for the potentiometer
 int ledPin = 13;      // select the pin for the LED
   // Pin 13: Arduino has an LED connected on pin 13
   // Pin 11: Teensy 2.0 has the LED on pin 11
@@ -89,7 +93,8 @@ void loop() {
   } else if (rampSpeed > wantSpeed) {
     rampSpeed -= (rampSpeed - wantSpeed) / 2;
   }
-  motors.setSpeeds(rampSpeed, rampSpeed);
+  int motorSpeed = rampSpeed * SPEED_UNIT;
+  motors.setSpeeds(motorSpeed, motorSpeed);
   Serial.print("M1 current: ");
   Serial.print(motors.getM1CurrentMilliamps());
   Serial.print(" === ");
