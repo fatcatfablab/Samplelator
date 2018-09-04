@@ -4,11 +4,25 @@
 
 #include "DualVNH5019MotorShield.h"
 
-DualVNH5019MotorShield motors;
+// FIXME: for single motor, not sure about both PWMs becoming the same, i.e., pin 9
+DualVNH5019MotorShield motor(2, 7, 9, 6, A0, 2, 7, 9, 12, A1);
+// DualVNH5019MotorShield motor(2, 4, 9, 6, A0, 7, 8, 10, 12, A1); // default values
+// DualVNH5019MotorShield motor; // default
 
-#define MAXSPEED_MOTOR 400    // change this value to the highest speed you want to give the motor controller
+#define MINMOTOR_VALUE 0
+#define MAXMOTOR_VALUE 400
+#define MINPOT_VALUE 0
+#define MAXPOT_VALUE 1023
 
-#define SPEED_UNIT (MAXSPEED_MOTOR / 1024) // rotary pot read values are 0 to 1023
+// change this value to the highest speed you want to give the motor controller
+#define MAXSPEED_MOTOR MAX_MOTOR_VALUE
+
+// change this value to the amount of speed changes per loop()
+#define MAXDELTA_SPEED 5
+
+// Change this value to larger values to see blink for faster processors
+// #define MAXBLINK_INTERVAL 10000    // For Teensy 3.6
+#define MAXBLINK_INTERVAL 10    // For Arduino Uno
 
 int speedPin = A4;    // select the input pin for the potentiometer
 int ledPin = 13;      // select the pin for the LED
@@ -16,28 +30,29 @@ int ledPin = 13;      // select the pin for the LED
   // Pin 11: Teensy 2.0 has the LED on pin 11
   // Pin  6: Teensy++ 2.0 has the LED on pin 6
   // Pin 13: Teensy 3.0 has the LED on pin 13
-int sensorValue = 0;  // variable to store the value coming from the sensor
+int blinkInterval = 0;
+int blinkState = 0;
+
+int rampSpeed = 0;
+int matchedGoal = 0;
+unsigned char got1Fault = 0;
+unsigned char got2Fault = 0;
 
 
 void setup() {
   // declare the ledPin as an OUTPUT:
   pinMode(ledPin, OUTPUT);
   Serial.begin(115200); 
-  motors.init(); 
+  motor.init(); 
 }
 
-int blinkInterval = 0;
-int blinkState = 0;
-int rampSpeed = 0;
-int matchedSpeed = 0;
 
-
-unsigned char got1Fault = 0;
-unsigned char got2Fault = 0;
-
+// Report any motor faults and delay till fault disappears
+// Note: even though we modified the board as a single motor driver, the docs
+//       says to monitor both half-bridge status to determine fault status
 void delayIfFault() {
-  unsigned char check1 = motors.getM1Fault();
-  unsigned char check2 = motors.getM2Fault();
+  unsigned char check1 = motor.getM1Fault();
+  unsigned char check2 = motor.getM2Fault();
   if (check1 && !got1Fault) {
     Serial.println("Motor 1 fault");
   }
@@ -64,8 +79,9 @@ void delayIfFault() {
 
 
 void loop() {
+  
   blinkInterval++;
-  if (blinkInterval > 10000) {
+  if (blinkInterval > MAXBLINK_INTERVAL) {
     blinkInterval = 0;
     blinkState = !blinkState;
     if (blinkState)
@@ -79,27 +95,38 @@ void loop() {
     return;
   }
 
-  int wantSpeed = analogRead(speedPin);
-  if (abs(rampSpeed - wantSpeed) < 8) {
+  unsigned int speedChange;
+  unsigned int wantSpeed = analogRead(speedPin);
+  if (abs(rampSpeed - wantSpeed) < MAXDELTA_SPEED) {
     // reduce chatter
-    if (matchedSpeed < 1000) {
-      matchedSpeed++;
+    if (matchedGoal < 1000) {
+      matchedGoal++;
       return;
     }
-    matchedSpeed = 0;
+    matchedGoal = 0;
     rampSpeed = wantSpeed;
   } else if (rampSpeed < wantSpeed) {
-    rampSpeed += (wantSpeed - rampSpeed) / 2;
+    speedChange = (wantSpeed - rampSpeed) / 2;
+    speedChange = (MAXDELTA_SPEED < speedChange) ? MAXDELTA_SPEED : speedChange;
+    rampSpeed += speedChange;
   } else if (rampSpeed > wantSpeed) {
-    rampSpeed -= (rampSpeed - wantSpeed) / 2;
+    speedChange = (rampSpeed - wantSpeed) / 2;
+    speedChange = (MAXDELTA_SPEED < speedChange) ? MAXDELTA_SPEED : speedChange;
+    if (rampSpeed > wantSpeed * 2) {
+      // apply some brake if significantly slowing down
+      motor.setM1Brake(MAXDELTA_SPEED);
+    }
+    rampSpeed -= speedChange;
   }
-  int motorSpeed = rampSpeed * SPEED_UNIT;
-  motors.setSpeeds(motorSpeed, motorSpeed);
-  Serial.print("M1 current: ");
-  Serial.print(motors.getM1CurrentMilliamps());
-  Serial.print(" === ");
-  Serial.print("M2 current: ");
-  Serial.print(motors.getM2CurrentMilliamps());
-  Serial.println();
+ 
+  int motorSpeed = map(rampSpeed, MINPOT_VALUE, MAXPOT_VALUE, MINMOTOR_VALUE, MAXMOTOR_VALUE);
+  //  Serial.print("motorSpeed="); Serial.println(motorSpeed);
+  if (motorSpeed == 0) {
+    // apply full brakes
+    motor.setM1Brake(400);
+  } else {
+    motor.setM1Speed(motorSpeed); // Note: we only send commands to M1, but actually control both
+  }
+
   delayIfFault();
 }
