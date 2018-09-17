@@ -1,4 +1,4 @@
-int pd=2;                      //Photodiode to digital pin 2
+int pd=A0;                      //Photodiode to analog pin
 
 int buzz=13;                   //piezo buzzer to digital pin 13
 int senRead=0;                 //Readings from sensor to analog pin 0
