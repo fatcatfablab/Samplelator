@@ -1,53 +1,56 @@
 /***************************************************************************
- * This is based on the example from Adafruit AS726x library.
- * We use an array of 6 neopixels to show the history of valid color values (above noise).
- * There is also a IR "line break" detector analog input.
+ * This is based on the example from Adafruit AS726x library on Teensy 3.6.
+ * This version **does not** use neopixels as those need 5 volts.
+ * This uses the IR "line break" detector analog input.
  * The color detection algorithm is tuned for our sample swatches.
  ***************************************************************************/
-#include <Adafruit_AS726x.h>
+enum midiMap {
+ blueMidi = 36,
+ greenMidi = 40,
+ redMidi = 42,
+  magentaMidi = 46,
+ violetMidi = 48,
+ yellowMidi = 50
+}; 
+
+
 #include <Wire.h>
-#include <Adafruit_NeoPixel.h>
-
-// Parameter 1 = number of pixels in strip
-// Parameter 2 = pin number (most are valid)
-// Parameter 3 = pixel type flags, add together as needed:
-//   NEO_KHZ800  800 KHz bitstream (most NeoPixel products w/WS2812 LEDs)
-//   NEO_KHZ400  400 KHz (classic 'v1' (not v2) FLORA pixels, WS2811 drivers)
-//   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
-//   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
-// Adafruit_NeoPixel strip = Adafruit_NeoPixel(60, PIN, NEO_GRB + NEO_KHZ800);
-#define NEOPIX_PIN 2
-#define NEOPIX_ARRAY 6
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(NEOPIX_ARRAY, NEOPIX_PIN, NEO_GRB + NEO_KHZ800);
-
-// neopixels "color history"
-uint32_t neop[NEOPIX_ARRAY];
+#include <Adafruit_AS726x.h>
 
 // This is the AMS7262 sensor
 // Note: I2C address is fixed at 0x49 using standard Wire (SCL/SDA) pins for communications.
-Adafruit_AS726x ams;
+// Adafruit_AS726x ams;
+Adafruit_AS726x firstAms, secondAms, thirdAms;
+
+// Data ready flags for each sensor for state machine sequencing
+bool firstReady, secondReady, thirdReady;
+const char *lastColor[3];
+int lastNote[3];
 
 // For external "light break" input. Note: analog pin!
 #define THRESHOLD_ANALOG_PIN 0
 
-//Threshold range of an obstacle on light break detector
-int pdiodeThreshold = 200;
-
-// Minimum color channel value to consider above noise
-#define CHAN_THRESH 6
+// Threshold limits of an obstacle on light break detector
+int lowThreshold = 150;
+int highThreshold = 500;
 
 // TEST TEST TEST: uncomment the following not wait for start/stop signal
-#define AUTOTRIGGER
+// #define AUTOTRIGGER
 
-// TEST TEST TEST: uncomment to display sort by strongest color value
+// TEST TEST TEST: uncomment one of the following for display to serial options
 #define ORDER_BY_VALUE
+// #define RGB_REPORT
+// #define SHORT_COLOR_REPORT
+
+// TEST TEST TEST: uncomment for single sensor testing
+#define SINGLE_SENSOR_ONLY
 
 // buffer to hold sensor color values
-uint16_t senseVals[AS726x_NUM_CHANNELS];
+uint16_t firstSenseVals[AS726x_NUM_CHANNELS];
+uint16_t secondSenseVals[AS726x_NUM_CHANNELS];
+uint16_t thirdSenseVals[AS726x_NUM_CHANNELS];
 
 // color calculator variables
-uint16_t totRgb;
-uint8_t neoRed, neoGreen, neoBlue;
 int totSpectrum, meanSpectrum, numVariance, stdDevSpectrum;
 
 // State machine for loop processing
@@ -61,8 +64,6 @@ enum sensingStates {
 // jumpstart state machine
 int readSensorState = WAIT_START;
 
-// current color for neopixel position 0
-uint32_t npixNow;
 
 // value order or color sensors (changes per sample calculated)
 int orderColors[6] = {
@@ -70,7 +71,8 @@ int orderColors[6] = {
 };
 
 // calculate some basic statistics about the current color sample
-void calcSampleStats() {
+// The std dev value is also used to filter out white/black/grey colors
+void calcSampleStats(uint16_t *senseVals) {
   totSpectrum = 0;
   for (int idx = 0; idx < 6; idx++) {
     totSpectrum += senseVals[orderColors[idx]];
@@ -96,10 +98,10 @@ void calcSampleStats() {
 
 
 // Report is printed to serial monitor
-void printJsonVals(char *colorInd) {
+void printJsonVals(const char *colorInd, int sensorId, uint16_t senseVals[6]) {
 #ifdef ORDER_BY_VALUE
 // NOTE: requires stats to have been run
-  Serial.print("{ z:3");
+  Serial.print("{ id:"); Serial.print(sensorId);
   for (int idx = 0; idx < 6; idx++) {
     switch(orderColors[idx]) {
       case AS726x_VIOLET:
@@ -126,193 +128,277 @@ void printJsonVals(char *colorInd) {
   }
   Serial.print(", x:"); Serial.print(colorInd);
   Serial.println(" }");
-#else
-  // Just report the color
-  Serial.print("{ z:2");
+#endif // ORDER_BY_VALUE
+
+#ifdef RGB_REPORT
+  uint16_t totRgb = senseVals[AS726x_RED] + senseVals[AS726x_GREEN] + senseVals[AS726x_BLUE];
+  totRgb = totRgb == 0 ? 1 : totRgb;
+  uint8_t neoRed = 255 * senseVals[AS726x_RED] / totRgb;
+  uint8_t neoGreen = 255 * senseVals[AS726x_GREEN] / totRgb;
+  uint8_t neoBlue = 255 * senseVals[AS726x_BLUE] / totRgb;
+ 
+  Serial.print("{ id:"); Serial.print(sensorId);
+  Serial.print(", r:"); Serial.print(neoRed);
+  Serial.print(", g:"); Serial.print(neoGreen);
+  Serial.print(", b:"); Serial.print(neoBlue);
   Serial.print(", x:"); Serial.print(colorInd);
   Serial.println(" }");
 #endif
 
+#ifdef SHORT_COLOR_REPORT
+  // Just report the color
+  Serial.print("{ id:"); Serial.print(sensorId);
+  Serial.print(", x:"); Serial.print(colorInd);
+  Serial.println(" }");
+#endif  // SHORT_COLOR_REPORT
 }
 
-// Update neopixes using only the Red, Green, Blue components
-void updateNeopixels() {    
-  totRgb = senseVals[AS726x_RED] + senseVals[AS726x_GREEN] + senseVals[AS726x_BLUE];
-  neoRed = 255 * senseVals[AS726x_RED] / totRgb;
-  neoGreen = 255 * senseVals[AS726x_GREEN] / totRgb;
-  neoBlue = 255 * senseVals[AS726x_BLUE] / totRgb;
 
-  npixNow = strip.Color(neoRed, neoGreen, neoBlue);
-   
-  strip.setPixelColor(0, npixNow);
-  
-  for (int idx = 0; idx < 5; idx++) {
-     neop[5 - idx] = neop[4 - idx];
+void sendMidiOn(const char *colorInd, int useNote, int sensorId, uint16_t senseVals[6]) {
+  printJsonVals(colorInd, sensorId, senseVals);
+  if (sensorId < 1) {
+    Serial.print("Oops, sensorId is less than 1");
+    return;
   }
-  neop[0] = npixNow;
-  for (int idx = 0; idx < 6; idx++) {
-    strip.setPixelColor(idx, neop[idx]);
-  }
-  strip.show();
+  lastColor[sensorId - 1] = colorInd;
+  lastNote[sensorId - 1] = useNote;
+  if (useNote > 0)
+    usbMIDI.sendNoteOn(lastNote[sensorId - 1], 99, sensorId);
 }
+
+void sendMidiOff(int sensorId) {
+  if (sensorId < 1) {
+    Serial.print("Oops, last sensor Id was less than 1");
+    return;
+  }
+  lastColor[sensorId - 1] = "";
+  if (lastNote[sensorId - 1] > 0)
+    usbMIDI.sendNoteOff(lastNote[sensorId - 1], 0, sensorId);
+}
+
 
 // Calculate the matching color (note: tuned for our sample swatches)
-void calcColorMatch() {
-  if (stdDevSpectrum < 3) {
+void calcColorMatch(int sensorId, uint16_t senseVals[6]) {
+  if (stdDevSpectrum < 6) {
     // guess at a gray or black color
 #ifndef AUTOTRIGGER
-    printJsonVals(".");
+    sendMidiOn(".", 0, sensorId, senseVals);
 #endif
     return;
   }
-   
+   if (senseVals[orderColors[0]] < 75) {
+    sendMidiOn(".", 0, sensorId, senseVals);
+    return; 
+   }
+    
   switch (orderColors[0]) {
     case AS726x_VIOLET:
       if (orderColors[1] == AS726x_BLUE) {
-        printJsonVals("Blue");
+        sendMidiOn("Blue", blueMidi, sensorId, senseVals);
       } else if (orderColors[1] == AS726x_ORANGE) {
-        printJsonVals("Violet");
+        if (senseVals[AS726x_YELLOW] < senseVals[AS726x_RED]) {
+          sendMidiOn("Magenta", magentaMidi, sensorId, senseVals);
+          Serial.println(millis());
+        } else {
+          sendMidiOn("Violet", violetMidi, sensorId, senseVals);
+        }
       } else if (orderColors[1] == AS726x_GREEN) {
-        printJsonVals("Blue");
-      } else if (senseVals[AS726x_BLUE] > senseVals[AS726x_ORANGE]) {
-        printJsonVals("blue");
+       //  sendMidiOn("Cyan", 74, sensorId, senseVals);
+         sendMidiOn("Blue", blueMidi, sensorId, senseVals);
       } else {
-        printJsonVals("violet");
+        sendMidiOn(".", 0, sensorId, senseVals);
       }
       break;
     case AS726x_BLUE:
       if (orderColors[1] == AS726x_VIOLET) {
-        printJsonVals("Blue");
-      } else if (orderColors[1] == AS726x_GREEN) {
-        printJsonVals("green");
+        sendMidiOn("Blue", blueMidi, sensorId, senseVals);
       } else {
-        printJsonVals("blue");
+        sendMidiOn(".", 0, sensorId, senseVals);
       }
       break;
     case AS726x_GREEN:
-      if (orderColors[1] == AS726x_YELLOW) {
-        if (senseVals[AS726x_ORANGE] > senseVals[AS726x_BLUE]) {
-          printJsonVals("lime"); 
-        } else {
-          printJsonVals("Green");
-        }
+      if (orderColors[1] == AS726x_YELLOW && orderColors[2] == AS726x_ORANGE) {
+        sendMidiOn(".", 0, sensorId, senseVals);
+      } else if (orderColors[1] == AS726x_YELLOW && orderColors[2] == AS726x_VIOLET) {
+        sendMidiOn(".", 0, sensorId, senseVals);
+      } else if (orderColors[1] == AS726x_ORANGE) {
+        sendMidiOn(".", 0, sensorId, senseVals);
       } else {
-        printJsonVals("green");
+        sendMidiOn("Green", greenMidi, sensorId, senseVals);
       }
       break;
     case AS726x_YELLOW:
-      if (senseVals[AS726x_YELLOW] - senseVals[orderColors[1]] < 4) {
-        if (senseVals[AS726x_YELLOW] - senseVals[orderColors[2]] < 4) {
-          printJsonVals("Beige"); 
-        } else {
-          printJsonVals("yellow");
-        }
+      if (orderColors[2] == AS726x_VIOLET || orderColors[2] == AS726x_BLUE || 
+          orderColors[2] == AS726x_RED) {
+            sendMidiOn(".", 0, sensorId, senseVals);
       } else {
-        printJsonVals("Yellow");
+         sendMidiOn(".", 0, sensorId, senseVals);
       }
       break;
     case AS726x_ORANGE:
-      if (orderColors[1] == AS726x_YELLOW) {
+      if (orderColors[1] == AS726x_GREEN && orderColors[2] == AS726x_YELLOW) { 
+          sendMidiOn("Yellow", yellowMidi, sensorId, senseVals);
+      } else if (orderColors[1] == AS726x_VIOLET) {    
+         sendMidiOn("Magenta", magentaMidi, sensorId, senseVals);
+         Serial.println(millis());
+      } else if (orderColors[1] == AS726x_RED && orderColors[2] == AS726x_YELLOW) {
+        sendMidiOn("Red", redMidi, sensorId, senseVals);
+      } else if (orderColors[1] == AS726x_YELLOW) {
         if (senseVals[AS726x_GREEN] > senseVals[AS726x_RED]) {
-          printJsonVals("yellow");
-        } else {
-          printJsonVals("Orange");
-        }
-      } else if (orderColors[1] == AS726x_RED) {
-        printJsonVals("Red");
+          sendMidiOn("Yellow", yellowMidi, sensorId, senseVals);
       } else {
-        printJsonVals("orange");
+          // sendMidiOn("Orange", 68, sensorId, senseVals);
+          sendMidiOn(".", 0, sensorId, senseVals);
+        }
+      } else {
+        sendMidiOn(".", 0, sensorId, senseVals);
+        // sendMidiOn("orange", 67, sensorId, senseVals);
       }
       break;
     case AS726x_RED:
-      printJsonVals("Red");
+      sendMidiOn("Red", redMidi, sensorId, senseVals);
       break;
    }
 }
 
-
 void setup() {
   // Set up serial monitor
   Serial.begin(115200);
-  while(!Serial);
-  Serial.print("Configuring...");
-  // Set up neopixels
-  strip.begin();
-  // Start with reference colors
-  strip.setPixelColor(0, strip.Color(255, 0, 0)); // Red
-  strip.setPixelColor(1, strip.Color(0, 255, 0)); // Green
-  strip.setPixelColor(2, strip.Color(0, 0, 255)); // Blue
-  strip.setPixelColor(3, strip.Color(255, 255, 0)); // Yellow
-  strip.setPixelColor(4, strip.Color(255, 64, 0)); // Orange
-  strip.setPixelColor(5, strip.Color(255, 0, 255)); // Violet
-  strip.show();
+//  while(!Serial);
 
   // initialize digital pin LED_BUILTIN as an output indicator
-  // pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
+  
+  // Wire1 is CLK=19, DATA=18
+  // Wire2 is CLCK=37, DATA=38
+  // Wire3 is CLK=3, DATA=4
 
-  //begin and make sure we can talk to the sensor
-  for(; !ams.begin();) {
-    Serial.println("could not connect to sensor! Please check your wiring.");
+  //begin and make sure we can talk to the sensors
+#ifndef SINGLE_SENSOR_ONLY  
+  for(; !thirdAms.begin(&Wire2);) {
+    Serial.println("could not connect to third sensor! Please check your wiring.");
     delay(30000);
   }
-  ams.setGain(GAIN_64X); // require high gain for short integration times
-  // ams.setGain(GAIN_16X);
-  ams.setIntegrationTime(2); // This would be N * 5.6ms since filling both banks
-  ams.setConversionType(ONE_SHOT); // doing one-shot mode
-  ams.drvOn(); // built in sensor LED light on
-  
-  delay(1000);
+  thirdAms.setGain(GAIN_64X); // require high gain for short integration times
+  thirdAms.setIntegrationTime(2); // This would be N * 5.6ms since filling both banks
+  thirdAms.setConversionType(ONE_SHOT); // doing one-shot mode
 
-  // OK, clear out reference colors and start the show
-  for (int idx = 0; idx < 6; idx++) {
-    strip.setPixelColor(idx, strip.Color(0,0,0));
+  for(; !secondAms.begin(&Wire1);) {
+    Serial.println("could not connect to second sensor! Please check your wiring.");
+    delay(30000);
   }
-  strip.show();
+  secondAms.setGain(GAIN_64X); // require high gain for short integration times
+  secondAms.setIntegrationTime(1); // This would be N * 5.6ms since filling both banks
+  secondAms.setConversionType(ONE_SHOT); // doing one-shot mode
+#endif // SINGLE_SENSOR_ONLY
+
+  for(; !firstAms.begin(&Wire);) {
+    Serial.println("could not connect to first sensor! Please check your wiring.");
+    delay(30000);
+  }
+  firstAms.setGain(GAIN_64X); // require high gain for short integration times
+  firstAms.setIntegrationTime(1); // This would be N * 5.6ms since filling both banks
+  firstAms.setConversionType(ONE_SHOT); // doing one-shot mode
+
+  firstAms.drvOn();
+#ifndef SINGLE_SENSOR_ONLY
+  secondAms.drvOn();
+  thirdAms.drvOn();  
+  delay(1000);
+#endif //SINGLE_SENSOR_ONLY
 
   Serial.println("Waiting for start sample...");  
 }
 
-
 void loop() {
+  int triggerValue;
+  
   if (readSensorState == WAIT_START) {
 #ifndef AUTOTRIGGER
-    // if under threshold, keep looking
-    if (analogRead(THRESHOLD_ANALOG_PIN) < pdiodeThreshold) {
-      return;
-    }
+    triggerValue = analogRead(THRESHOLD_ANALOG_PIN);
+#else
+    triggerValue = lowThreshold - 1;
 #endif
-    readSensorState = INITIATE_ONE_SHOT;
-    // Serial.println("start");
-  } // fall thru!
+    // if under threshold, keep looking
+    if (triggerValue < lowThreshold) {
+      firstReady = false;
+      sendMidiOff(1);
+#ifndef SINGLE_SENSOR_ONLY
+      secondReady = false;
+      thirdReady = false;
+      sendMidiOff(2);
+      sendMidiOff(3);
+#else
+      secondReady = true;
+      thirdReady = true;
+#endif // SINGLE_SENSOR_ONLY
+      readSensorState = INITIATE_ONE_SHOT;
+      digitalWrite(LED_BUILTIN, LOW);
+    }
+  }
    
   if (readSensorState == INITIATE_ONE_SHOT) {
-    ams.startMeasurement(); // initiate one shot color sensing
-    readSensorState = WAIT_END;
-    // Serial.println("wait end...");
-  } // fall thru!
-  
-  if (readSensorState == WAIT_END) {
-    // if over threshold, keep looking
-#ifndef AUTOTRIGGER
-    if (analogRead(THRESHOLD_ANALOG_PIN) > pdiodeThreshold) {
-      return;
+    // firstAms.drvOn();
+    firstAms.startMeasurement(); // initiate one shot color sensing
+#ifndef SINGLE_SENSOR_ONLY
+    // secondAms.drvOn();
+    secondAms.startMeasurement();
+    // thirdAms.drvOn();
+    thirdAms.startMeasurement();
+#endif // SINGLE_SENSOR_ONLY
+    for(;usbMIDI.read();) {
+      // do nothing with incomming usb messages
     }
-#endif
     readSensorState = SEND_REPORT;
-    // Serial.println("report now"); // fall thru!
-  } // fall thru!
-
+  }
 
   if (readSensorState == SEND_REPORT) {
     // generate report after sensor ready to be read
-    if (ams.dataReady()) {
-      // Read the actual color sensor values
-      ams.readRawValues(senseVals);
-      // Calculate the color and report
-      calcSampleStats();
-      calcColorMatch();
-      updateNeopixels();
+    if ( !firstReady ) {
+      firstReady = firstAms.dataReady();
+      if (firstReady) {
+        firstAms.readRawValues(firstSenseVals);
+      }
+    } else {
+      Serial.println("Miss!!");
+    }
+#ifndef SINGLE_SENSOR_ONLY
+    if ( !secondReady ) {
+      secondReady = secondAms.dataReady();
+      if (secondReady) {
+        secondAms.readRawValues(secondSenseVals);
+      }
+    }
+    if ( !thirdReady ) {
+      thirdReady = thirdAms.dataReady();
+      if (thirdReady) {
+        thirdAms.readRawValues(thirdSenseVals);
+      }
+    }
+#endif // SINGLE_SENSOR_ONLY
+
+    if (firstReady && secondReady && thirdReady) {
+        calcSampleStats(firstSenseVals);
+        calcColorMatch(1, firstSenseVals);
+#ifndef SINGLE_SENSOR_ONLY
+        calcSampleStats(secondSenseVals);
+        calcColorMatch(2, secondSenseVals);
+        calcSampleStats(thirdSenseVals);
+        calcColorMatch(3, thirdSenseVals);
+#endif // SINGLE_SENSOR_ONLY
+        readSensorState = WAIT_END;
+    }
+  }
+  
+  if (readSensorState == WAIT_END) {
+#ifndef AUTOTRIGGER
+    triggerValue = analogRead(THRESHOLD_ANALOG_PIN);
+#else
+    triggerValue = highThreshold + 1;
+#endif
+    if (triggerValue > highThreshold) {
       readSensorState = WAIT_START;
-    } // FIXME:may need a timeout counter here
-  } 
+      digitalWrite(LED_BUILTIN, HIGH);
+    }
+  }
 }
