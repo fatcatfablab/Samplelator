@@ -427,7 +427,7 @@ void loop() {
     triggerValue = lowThreshold - 1;
 #endif
     // if under threshold, keep looking
-    if (triggerValue < lowThreshold) {
+    if (triggerValue > highThreshold) {
       firstReady = false;
       sendMidiOff(1);
 #ifndef SINGLE_SENSOR_ONLY
@@ -501,7 +501,7 @@ void loop() {
 #else
     triggerValue = highThreshold + 1;
 #endif
-    if (triggerValue > highThreshold) {
+    if (triggerValue < lowThreshold) {
       readSensorState = WAIT_START;
       digitalWrite(LED_BUILTIN, HIGH);
 
