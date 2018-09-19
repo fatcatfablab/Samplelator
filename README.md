@@ -15,6 +15,10 @@ __sketch_channels_color__
 
 The sketch_channels_color subdirectory was branched off of sketch_teensy_color to focus on integrating in the channel changer code.
 
+__sketch_logo_lights__
+
+The logo lights sketch was derived from the logo board led display of the hotshot makerfaire project. This version ditches the alternate serial port and instead uses the same usb serial port for both debug output and command input. When no command is given or active, a random command is chosen. Also added a spinning stick animation.
+
 __sketch_break_detect__
 
 The break detect sketch is a simple sketch to help debug the light break switch. This switch is used to detect when a color sample should be taken. It consists of an IR led plus detector, with pegs that pass in between to indicate that a sample needs to be taken. The signal received is an analog value. Hysteris is applied to the analog signal to debounce the break detection and break restoration values. This sketch was eventually incorporated in the teensy color sketch.
