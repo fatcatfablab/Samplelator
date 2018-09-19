@@ -11,6 +11,9 @@ The directory sketch_teensy_color was branched off of *sketch_colorimeter* and c
 
 The 6 color channels can be thought of as discrete frequency spectrum of a continuous waveform. Normally, you would compare the spectrum with values from calibrated color samples in order to find the closest matching color. For this demo, we need to determine the color in a timely manner using an Teensy. So, we end up taking shortcuts to come up with the closest match. For example, we primarily use the peak channel (the channel with the strongest signal) and use that as the primary basis for selecting the color. Additionally, we use the color wheel and characteristics of the colors used in the device to come up with secondary modifications to the color matching. For example, the blue and violet colors are very close to each other in the color wheel, and have very similar peak values. However, because the blue color that we use has a stronger green component than orange, we can increase the identification between the violet color sample versus the blue color sample. Something similar happens with our yellow and red samples. Again, this is due to their proximity in the color wheel.
 
+__sketch_channels_color__
+
+The sketch_channels_color subdirectory was branched off of sketch_teensy_color to focus on integrating in the channel changer code.
 
 __sketch_break_detect__
 
