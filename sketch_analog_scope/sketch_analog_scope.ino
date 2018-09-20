@@ -8,7 +8,9 @@
 *  value, and shifting it right by 3, i.e., dividing by 8,  to limit the range from 0 to 63.
 */
 
-int sensorPin = A4;    // select the input pin for the potentiometer
+#define PRINTRAW
+
+int sensorPin = A0;    // select the input pin for the potentiometer
 int ledPin = 13;      // select the pin for the LED
   // Pin 13: Arduino has an LED connected on pin 13
   // Pin 11: Teensy 2.0 has the LED on pin 11
@@ -100,6 +102,11 @@ void loop() {
       digitalWrite(ledPin, LOW);
   }
 
+#ifdef PRINTRAW
+  if (abs(prevReads[0] - sensorValue) > 2)
+    Serial.println(sensorValue);
+  prevReads[0] = sensorValue;
+#else // PRINTRAW
   unsigned int displayValue = (sensorValue >> 4) & 0x3F;
   if (displayValue == 0) {
     int sumPrevs = 0;
@@ -116,4 +123,5 @@ void loop() {
   for (int idx = 0; idx < 3; idx++)
     prevReads[3 - idx] = prevReads[2 - idx];
   prevReads[0] = displayValue;
+#endif // PRINTRAW
 }

@@ -121,11 +121,19 @@ void loop() {
     rampSpeed -= speedChange;
   }
  
-  int motorSpeed = map(rampSpeed, MINPOT_VALUE, MAXPOT_VALUE, MINMOTOR_VALUE, MAXMOTOR_VALUE);
+  int motorSpeed;
+
+  if (rampSpeed < MINPOT_VALUE) {
+    motorSpeed = MINMOTOR_VALUE;
+  } else if (rampSpeed > MAXPOT_VALUE) {
+    motorSpeed = MAXMOTOR_VALUE;
+  } else {
+    motorSpeed = map(rampSpeed, MINPOT_VALUE, MAXPOT_VALUE, MINMOTOR_VALUE, MAXMOTOR_VALUE);
+  }
   //  Serial.print("motorSpeed="); Serial.println(motorSpeed);
   if (motorSpeed == 0) {
-    // apply full brakes
-    motor.setM1Brake(400);
+    // apply brakes
+    motor.setM1Brake(MAXDELTA_SPEED);
   } else {
     motor.setM1Speed(motorSpeed); // Note: we only send commands to M1, but actually control both
   }
