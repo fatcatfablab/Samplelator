@@ -174,14 +174,14 @@ void wheels() {
         strip.setPixelColor(wheelData[jdx][idx], 255);
       }
       strip.show();
-      delay(200);
     }
+    off();
   }
 }
 
 
 void noise() {
-  int rndNoise = random(1,20);
+  int rndNoise = random(1,2);
   while( rndNoise-- > 0 ) {
     for (int x = 0; x <= 150; x++) {
       int rawval = analogRead(A0);
@@ -214,7 +214,7 @@ void flash( int t) {
 
 void sleep() {
   Serial.println("sleep...");
-  int rndSleep = random(1,20);
+  int rndSleep = random(1,2);
   while( rndSleep-- > 0 ) {
     float b = (exp(sin(millis() / 2000.0 * PI)) - 0.36787944) * 90.0;
     for (uint16_t i = 0; i < strip.numPixels(); i++) {
