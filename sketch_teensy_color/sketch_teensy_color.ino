@@ -418,22 +418,22 @@ int readSensorState = WAIT_START;
 enum dialPins {
   dialPin1 = 28,
   dialPin2 = 29,
-  dialPin3 = 30,
-  dialPin4 = 3,
-  dialPin5 = 4,
-  dialPin6 = 5,
-  dialPin7 = 6,
-  dialPin8 = 7,
-  dialPin9 = 8,
-  dialPin10 = 9,
-  dialPin11 = 10,
-  dialPin12 = 11,
-  dialPin13 = 12,
-  dialPin14 = 13,
-  dialPin15 = 14,
-  dialPin16 = 15,
-  dialPin17 = 16,
-  dialPin18 = 17
+  dialPin3 = 30//,
+             //  dialPin4 = 3,
+             //  dialPin5 = 4,
+             //  dialPin6 = 5,
+             //  dialPin7 = 6,
+             //  dialPin8 = 7,
+             //  dialPin9 = 8,
+             //  dialPin10 = 9,
+             //  dialPin11 = 10,
+             //  dialPin12 = 11,
+             //  dialPin13 = 12,
+             //  dialPin14 = 13,
+             //  dialPin15 = 14,
+             //  dialPin16 = 15,
+             //  dialPin17 = 16,
+             //  dialPin18 = 17
 };
 
 
@@ -454,15 +454,15 @@ void setup() {
     pinMode(dialPin1, INPUT_PULLUP);
     pinMode(dialPin2, INPUT_PULLUP);
     pinMode(dialPin3, INPUT_PULLUP);
-    pinMode(dialPin4, INPUT_PULLUP);
-    pinMode(dialPin5, INPUT_PULLUP);
-    pinMode(dialPin6, INPUT_PULLUP);
-    pinMode(dialPin7, INPUT_PULLUP);
-    pinMode(dialPin8, INPUT_PULLUP);
-    pinMode(dialPin9, INPUT_PULLUP);
-    pinMode(dialPin10, INPUT_PULLUP);
-    pinMode(dialPin11, INPUT_PULLUP);
-    pinMode(dialPin12, INPUT_PULLUP);
+    //    pinMode(dialPin4, INPUT_PULLUP);
+    //    pinMode(dialPin5, INPUT_PULLUP);
+    //    pinMode(dialPin6, INPUT_PULLUP);
+    //    pinMode(dialPin7, INPUT_PULLUP);
+    //    pinMode(dialPin8, INPUT_PULLUP);
+    //    pinMode(dialPin9, INPUT_PULLUP);
+    //    pinMode(dialPin10, INPUT_PULLUP);
+    //    pinMode(dialPin11, INPUT_PULLUP);
+    //    pinMode(dialPin12, INPUT_PULLUP);
   } // NO_CHANGE_CHANNEL
 
   //begin and make sure we can talk to the sensors
@@ -566,55 +566,97 @@ void loop() {
 
       if (!NO_CHANNEL_CHANGES) {
         // read the color to channel switches here
-        int dialCode_v = digitalRead(dialPin1) + digitalRead(dialPin2) * 2 + digitalRead(dialPin3) * 4;
-        int dialCode_b = digitalRead(dialPin4) + digitalRead(dialPin5) * 2 + digitalRead(dialPin6) * 4;
-        int dialCode_g = digitalRead(dialPin7) + digitalRead(dialPin8) * 2 + digitalRead(dialPin9) * 4;
-        int dialCode_y = digitalRead(dialPin10) + digitalRead(dialPin11) * 2 + digitalRead(dialPin12) * 4;
-        int dialCode_r = digitalRead(dialPin13) + digitalRead(dialPin14) * 2 + digitalRead(dialPin15) * 4;
-        int dialCode_m = digitalRead(dialPin16) + digitalRead(dialPin17) * 2 + digitalRead(dialPin18) * 4;
+        int dialCode = digitalRead(dialPin1) + digitalRead(dialPin2) * 2 + digitalRead(dialPin3) * 4;
+        //        int dialCode_v = digitalRead(dialPin1) + digitalRead(dialPin2) * 2 + digitalRead(dialPin3) * 4;
+        //        int dialCode_b = digitalRead(dialPin4) + digitalRead(dialPin5) * 2 + digitalRead(dialPin6) * 4;
+        //        int dialCode_g = digitalRead(dialPin7) + digitalRead(dialPin8) * 2 + digitalRead(dialPin9) * 4;
+        //        int dialCode_y = digitalRead(dialPin10) + digitalRead(dialPin11) * 2 + digitalRead(dialPin12) * 4;
+        //        int dialCode_r = digitalRead(dialPin13) + digitalRead(dialPin14) * 2 + digitalRead(dialPin15) * 4;
+        //        int dialCode_m = digitalRead(dialPin16) + digitalRead(dialPin17) * 2 + digitalRead(dialPin18) * 4;
 
-        switch (dialCode_v) {
-          case 1: color2Channel[violetChan] = 2; break;
-          case 2: color2Channel[violetChan] = 3; break;
-          case 4: color2Channel[violetChan] = 4; break;
-          default:
-            color2Channel[violetChan] = 1;
+        switch (dialCode) {
+          case 1: {
+              color2Channel[violetChan] = 2;
+              color2Channel[blueChan] = 2;
+              color2Channel[greenChan] = 2;
+              color2Channel[yellowChan] = 2;
+              color2Channel[redChan] = 2;
+              color2Channel[magentaChan] = 2;
+              break;
+            }
+
+          case 2: {
+              color2Channel[violetChan] = 3;
+              color2Channel[blueChan] = 3;
+              color2Channel[greenChan] = 3;
+              color2Channel[yellowChan] = 3;
+              color2Channel[redChan] = 3;
+              color2Channel[magentaChan] = 3;
+              break;
+            }
+
+          case 4: {
+              color2Channel[violetChan] = 4;
+              color2Channel[blueChan] = 4;
+              color2Channel[greenChan] = 4;
+              color2Channel[yellowChan] = 4;
+              color2Channel[redChan] = 4;
+              color2Channel[magentaChan] = 4;
+              break;
+            }
+
+          default: {
+              color2Channel[violetChan] = 1;
+              color2Channel[blueChan] = 1;
+              color2Channel[greenChan] = 1;
+              color2Channel[yellowChan] = 1;
+              color2Channel[redChan] = 1;
+              color2Channel[magentaChan] = 1;
+            }
         }
-        switch (dialCode_b) {
-          case 1: color2Channel[blueChan] = 2; break;
-          case 2: color2Channel[blueChan] = 3; break;
-          case 4: color2Channel[blueChan] = 4; break;
-          default:
-            color2Channel[blueChan] = 1;
-        }
-        switch (dialCode_g) {
-          case 1: color2Channel[greenChan] = 2; break;
-          case 2: color2Channel[greenChan] = 3; break;
-          case 4: color2Channel[greenChan] = 4; break;
-          default:
-            color2Channel[greenChan] = 1;
-        }
-        switch (dialCode_y) {
-          case 1: color2Channel[yellowChan] = 2; break;
-          case 2: color2Channel[yellowChan] = 3; break;
-          case 4: color2Channel[yellowChan] = 4; break;
-          default:
-            color2Channel[yellowChan] = 1;
-        }
-        switch (dialCode_r) {
-          case 1: color2Channel[redChan] = 2; break;
-          case 2: color2Channel[redChan] = 3; break;
-          case 4: color2Channel[redChan] = 4; break;
-          default:
-            color2Channel[redChan] = 1;
-        }
-        switch (dialCode_m) {
-          case 1: color2Channel[magentaChan] = 2; break;
-          case 2: color2Channel[magentaChan] = 3; break;
-          case 4: color2Channel[magentaChan] = 4; break;
-          default:
-            color2Channel[magentaChan] = 1;
-        }
+
+        //        switch (dialCode_v) {
+        //          case 1: color2Channel[violetChan] = 2; break;
+        //          case 2: color2Channel[violetChan] = 3; break;
+        //          case 4: color2Channel[violetChan] = 4; break;
+        //          default:
+        //            color2Channel[violetChan] = 1;
+        //        }
+        //        switch (dialCode_b) {
+        //          case 1: color2Channel[blueChan] = 2; break;
+        //          case 2: color2Channel[blueChan] = 3; break;
+        //          case 4: color2Channel[blueChan] = 4; break;
+        //          default:
+        //            color2Channel[blueChan] = 1;
+        //        }
+        //        switch (dialCode_g) {
+        //          case 1: color2Channel[greenChan] = 2; break;
+        //          case 2: color2Channel[greenChan] = 3; break;
+        //          case 4: color2Channel[greenChan] = 4; break;
+        //          default:
+        //            color2Channel[greenChan] = 1;
+        //        }
+        //        switch (dialCode_y) {
+        //          case 1: color2Channel[yellowChan] = 2; break;
+        //          case 2: color2Channel[yellowChan] = 3; break;
+        //          case 4: color2Channel[yellowChan] = 4; break;
+        //          default:
+        //            color2Channel[yellowChan] = 1;
+        //        }
+        //        switch (dialCode_r) {
+        //          case 1: color2Channel[redChan] = 2; break;
+        //          case 2: color2Channel[redChan] = 3; break;
+        //          case 4: color2Channel[redChan] = 4; break;
+        //          default:
+        //            color2Channel[redChan] = 1;
+        //        }
+        //        switch (dialCode_m) {
+        //          case 1: color2Channel[magentaChan] = 2; break;
+        //          case 2: color2Channel[magentaChan] = 3; break;
+        //          case 4: color2Channel[magentaChan] = 4; break;
+        //          default:
+        //            color2Channel[magentaChan] = 1;
+        //      }
       } // NO_CHANGE_CHANNEL
     } else {
       // Serial.print("Wait End : "); Serial.println(triggerValue);
