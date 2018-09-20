@@ -2,7 +2,7 @@
 #define dumpReadings false
 
 #define interruptor A0
-#define sensorPort Serial5
+#define sensorPort Serial1
 
 #define violet 0
 #define blue 1
@@ -11,7 +11,7 @@
 #define orange 4
 #define red 5
 
-float readings[] = {0, 0, 0, 0, 0, 0};
+int readings[] = {0, 0, 0, 0, 0, 0};
 
 char colorNames[][7] = {
   "violet",
@@ -57,21 +57,21 @@ void loop() {
   if (runCommand("ATTCSMD=3", false)) {
     delay(30);
 
-    sensorPort.println("ATCDATA");
+    sensorPort.println("ATDATA");
 
-    float lowerLimit = 150;
-    float upperLimit = 1200;
+    int lowerLimit = 150;
+    int upperLimit = 1200;
 
     bool tooLow = true;
     bool tooHigh = false;
 
-    float highestReading = 0;
-    float secondHighestReading = 0;
+    int highestReading = 0;
+    int secondHighestReading = 0;
     byte highestIndex = 0xFF;
     byte secondHighestIndex = 0xFF;
 
     for (byte i = 0; i < 6; i++) {
-      float reading = sensorPort.parseFloat();
+      int reading = sensorPort.parseInt();
       readings[i] = reading;
 
       if (reading > lowerLimit) tooLow = false;
