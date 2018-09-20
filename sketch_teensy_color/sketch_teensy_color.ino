@@ -4,8 +4,6 @@
    This uses the IR "line break" detector analog input.
    The color detection algorithm is tuned for our sample swatches.
  ***************************************************************************/
-#include <Wire.h>
-#include <Adafruit_AS726x.h>
 
 /*
    Current limited to 12.5mA?
@@ -13,7 +11,7 @@
 */
 
 // The pin for the external "light break" input. Note: analog pin
-#define THRESHOLD_ANALOG_PIN A0
+#define THRESHOLD_ANALOG_PIN A16
 
 // Threshold limits of an obstacle on light break detector
 int lowThreshold = 300; // 150;  // May change with timer peg and sensor relocation
@@ -35,6 +33,14 @@ int highThreshold = 500; // 500;
 
 // Modify this to set the integration time (must be > 1)
 #define UNIT_INTEGRATE 1
+
+#define AS726x_NUM_CHANNELS 6
+#define AS726x_VIOLET 0
+#define AS726x_BLUE 1
+#define AS726x_GREEN 2
+#define AS726x_YELLOW 3
+#define AS726x_ORANGE 4
+#define AS726x_RED 5
 
 int defaultOrder[AS726x_NUM_CHANNELS] = {
   AS726x_VIOLET, AS726x_BLUE, AS726x_GREEN, AS726x_YELLOW, AS726x_ORANGE, AS726x_RED
@@ -68,9 +74,12 @@ uint8_t lastChannels[] = {
   1, 1, 1, 1, 1, 1
 };
 
-class ColorSensor : public Adafruit_AS726x {
+class ColorSensor {
   protected:
     static int allSensorIds;
+    HardwareSerial & sensorPort;
+    bool runCommand(char * command, bool verbose);
+    bool runCommand(char * command);
 
   public:	// basically, this class is more like a struct+typedef
     int sensorId;
@@ -86,20 +95,23 @@ class ColorSensor : public Adafruit_AS726x {
     int lastNote;
     int lastChan;
 
-    ColorSensor(void);
+    ColorSensor(HardwareSerial & port);
     // ~ColorSensor(void);
 
+    bool begin(void);
     void readColorRegs(void);
     void calcSampleStats(void);
     void printReport(const char *);
     void sendMidiOn(const char *colorInd, int useNote);
     void sendMidiOff(void);
     void calcColorMatch(void);
+    void startMeasurement(void);
 };
 
 int ColorSensor::allSensorIds = 1;
 
-ColorSensor::ColorSensor() {
+ColorSensor::ColorSensor(HardwareSerial & port) : sensorPort(port) {
+
   sensorId = ColorSensor::allSensorIds++;
   for (int idx = 0; idx < AS726x_NUM_CHANNELS; idx++)
     senseVals[idx] = 0;
@@ -116,8 +128,65 @@ ColorSensor::ColorSensor() {
   lastChan = 1;
 }
 
+bool ColorSensor::runCommand(char * command, bool verbose) {
+  for (byte i = 0; i < 3; i++) {
+    sensorPort.println(command);
+
+    if (sensorPort.find("OK\n")) {
+      if (verbose) {
+        Serial.print("Ran command ");
+        Serial.println(command);
+      }
+      return true;
+    }
+
+    if (i != 2) {
+      if (verbose) {
+        Serial.print("Command ");
+        Serial.print(command);
+        Serial.println(" failed, retrying");
+      }
+      delay(5);
+    }
+    else if (verbose) {
+      Serial.println("Command failed");
+    }
+  }
+
+  return false;
+}
+
+bool ColorSensor::runCommand(char * command) {
+  return runCommand(command, true);
+}
+
+bool ColorSensor::begin() {
+  sensorPort.begin(115200);
+
+  if (runCommand("AT")) Serial.println("Detected sensor");
+  else Serial.println("Didn't detect sensor!!");
+
+  if (runCommand("ATTCSMD=3") && // doing one-shot mode
+      runCommand("ATINTTIME=1") && // This would be N * 5.6ms since filling both banks
+      runCommand("ATGAIN=3") && // require high gain for short integration times
+      runCommand("ATLEDC=00010001") && // Set LED current to 50mA for flashlight and 4mA for indicator
+      runCommand("ATLED1=100")) { // Turn on flashlight
+    Serial.println("Configured successfully");
+    return true;
+  }
+  else {
+    Serial.println("Configuration failed");
+    return false;
+  }
+}
+
 void ColorSensor::readColorRegs(void) {
-  readRawValues(senseVals, 6);
+  sensorPort.println("ATDATA");
+
+  for (byte i = 0; i < 6; i++) {
+    int reading = sensorPort.parseInt();
+    senseVals[i] = reading;
+  }
 }
 
 // calculate some basic statistics about the current color sample
@@ -320,9 +389,18 @@ void ColorSensor::calcColorMatch(void) {
   }
 }
 
+void ColorSensor::startMeasurement() {
+  runCommand("ATTCSMD=3", false);
+}
 
-ColorSensor firstAms, secondAms, thirdAms;
-
+ColorSensor ams[] = {
+  ColorSensor(Serial1),
+  ColorSensor(Serial2),
+  ColorSensor(Serial3),
+  ColorSensor(Serial4),
+  ColorSensor(Serial5),
+  ColorSensor(Serial6)
+};
 
 // State machine for loop processing
 enum sensingStates {
@@ -336,10 +414,11 @@ enum sensingStates {
 int readSensorState = WAIT_START;
 
 // pins to read channel selector dials
+
 enum dialPins {
-  dialPin1 = 0,
-  dialPin2 = 1,
-  dialPin3 = 2,
+  dialPin1 = 28,
+  dialPin2 = 29,
+  dialPin3 = 30,
   dialPin4 = 3,
   dialPin5 = 4,
   dialPin6 = 5,
@@ -361,71 +440,50 @@ enum dialPins {
 void setup() {
   // Set up serial monitor
   Serial.begin(115200);
+
+  delay(1000);
+
+  Serial.println("Sanity");
+
   // while(!Serial);
-
-  // Set up inter-teensy board comm for color to channel mapping
-  Serial1.begin(9600);
-
-  // Configure i2c interfaces for 400KHz operation
-
-  Wire.setClock(400000);
-  Wire1.setClock(400000);
-  Wire2.setClock(400000);
-
-  // Wire is i2c CLK=19, DATA=18
-  // Wire1 is i2c CLCK=37, DATA=38
-  // Wire2 is i2c CLK=3, DATA=4
 
   // initialize digital pin LED_BUILTIN as an output indicator
   pinMode(LED_BUILTIN, OUTPUT);
 
   if (!NO_CHANNEL_CHANGES) {
-    pinMode(dialPin1, INPUT);
-    pinMode(dialPin2, INPUT);
-    pinMode(dialPin3, INPUT);
-    pinMode(dialPin4, INPUT);
-    pinMode(dialPin5, INPUT);
-    pinMode(dialPin6, INPUT);
-    pinMode(dialPin7, INPUT);
-    pinMode(dialPin8, INPUT);
-    pinMode(dialPin9, INPUT);
-    pinMode(dialPin10, INPUT);
-    pinMode(dialPin11, INPUT);
-    pinMode(dialPin12, INPUT);
+    pinMode(dialPin1, INPUT_PULLUP);
+    pinMode(dialPin2, INPUT_PULLUP);
+    pinMode(dialPin3, INPUT_PULLUP);
+    pinMode(dialPin4, INPUT_PULLUP);
+    pinMode(dialPin5, INPUT_PULLUP);
+    pinMode(dialPin6, INPUT_PULLUP);
+    pinMode(dialPin7, INPUT_PULLUP);
+    pinMode(dialPin8, INPUT_PULLUP);
+    pinMode(dialPin9, INPUT_PULLUP);
+    pinMode(dialPin10, INPUT_PULLUP);
+    pinMode(dialPin11, INPUT_PULLUP);
+    pinMode(dialPin12, INPUT_PULLUP);
   } // NO_CHANGE_CHANNEL
 
-  Serial.println("Init third");
   //begin and make sure we can talk to the sensors
   if (!SINGLE_SENSOR_ONLY) {
-    for (; !thirdAms.begin(&Wire2);) {
-      Serial.println("could not connect to third sensor! Please check your wiring.");
-      delay(30000);
-    }
-    thirdAms.setGain(GAIN_64X); // require high gain for short integration times
-    thirdAms.setIntegrationTime(UNIT_INTEGRATE); // This would be N * 5.6ms since filling both banks
-    thirdAms.setConversionType(ONE_SHOT); // doing one-shot mode
-    thirdAms.drvOn();
+    for (int i = 1; i < 6; i++) {
+      Serial.print("Init AMS #");
+      Serial.println(i);
 
-    Serial.println("Init second");
-
-    for (; !secondAms.begin(&Wire1);) {
-      Serial.println("could not connect to second sensor! Please check your wiring.");
-      delay(30000);
+      for (; !ams[i].begin();) {
+        Serial.print("could not connect to sensor #");
+        Serial.print(i);
+        Serial.println("! Please check your wiring.");
+        delay(30000);
+      }
     }
-    secondAms.setGain(GAIN_64X); // require high gain for short integration times
-    secondAms.setIntegrationTime(UNIT_INTEGRATE); // This would be N * 5.6ms since filling both banks
-    secondAms.setConversionType(ONE_SHOT); // doing one-shot mode
-    secondAms.drvOn();
   } // SINGLE_SENSOR_ONLY
-  Serial.println("Init first");
-  for (; !firstAms.begin(&Wire);) {
+  Serial.println("Init AMS #0");
+  for (; !ams[0].begin();) {
     Serial.println("could not connect to first sensor! Please check your wiring.");
     delay(30000);
   }
-  firstAms.setGain(GAIN_64X); // require high gain for short integration times
-  firstAms.setIntegrationTime(UNIT_INTEGRATE); // This would be N * 5.6ms since filling both banks
-  firstAms.setConversionType(ONE_SHOT); // doing one-shot mode
-  firstAms.drvOn();
 
   Serial.println("Waiting for start sample...");
 }
@@ -440,23 +498,24 @@ void loop() {
     if (!AUTOTRIGGER) {
       triggerValue = analogRead(THRESHOLD_ANALOG_PIN);
     } else {
-      triggerValue = lowThreshold - 1;
+      triggerValue = highThreshold + 1;
     }
     // if under threshold, keep looking
     if (triggerValue > highThreshold) {
-      firstAms.isReady = false;
-      firstAms.wasRead = false;
-      firstAms.sendMidiOff();
+      ams[0].isReady = false;
+      ams[0].wasRead = false;
+      ams[0].sendMidiOff();
       if (!SINGLE_SENSOR_ONLY) {
-        secondAms.isReady = false;
-        secondAms.wasRead = false;
-        thirdAms.isReady = false;
-        thirdAms.wasRead = false;
-        secondAms.sendMidiOff();
-        thirdAms.sendMidiOff();
+        for (int i = 1; i < 6; i++) {
+          ams[i].isReady = false;
+          ams[i].wasRead = false;
+          ams[i].sendMidiOff();
+        }
       } else {
-        secondAms.isReady = true;
-        thirdAms.isReady = true;
+        for (int i = 1; i < 6; i++) {
+          ams[i].isReady = true;
+          ams[i].wasRead = true;
+        }
       } // SINGLE_SENSOR_ONLY
       readSensorState = INITIATE_ONE_SHOT;
       digitalWrite(LED_BUILTIN, HIGH);
@@ -466,58 +525,40 @@ void loop() {
   }
 
   if (readSensorState == INITIATE_ONE_SHOT) {
-    firstAms.startMeasurement(); // initiate one shot color sensing
+    ams[0].startMeasurement(); // initiate one shot color sensing
     if (!SINGLE_SENSOR_ONLY) {
-      secondAms.startMeasurement();
-      thirdAms.startMeasurement();
+      for (int i = 1; i < 6; i++) {
+        ams[i].startMeasurement();
+      }
     } // SINGLE_SENSOR_ONLY
+    delay(30); // Hardcoded delay - no dataReady() available for UART
     readSensorState = SEND_REPORT;
   }
 
   if (readSensorState == SEND_REPORT) {
-    // generate report after sensor ready to be read
-    if ( !firstAms.isReady ) {
-      firstAms.isReady = firstAms.dataReady();
-      if (firstAms.isReady) {
-        firstAms.readColorRegs();
-        firstAms.wasRead = true;
+    ams[0].readColorRegs();
+    if (!SINGLE_SENSOR_ONLY) {
+      for (int i = 1; i < 6; i++) {
+        ams[i].readColorRegs();
       }
     }
+
+    ams[0].calcSampleStats();
+    ams[0].calcColorMatch();
     if (!SINGLE_SENSOR_ONLY) {
-      if ( !secondAms.isReady ) {
-        secondAms.isReady = secondAms.dataReady();
-        if (secondAms.isReady) {
-          secondAms.readColorRegs();
-          secondAms.wasRead = true;
-        }
-      }
-      if ( !thirdAms.isReady ) {
-        thirdAms.isReady = thirdAms.dataReady();
-        if (thirdAms.isReady) {
-          thirdAms.readColorRegs();
-          thirdAms.wasRead = true;
-        }
+      for (int i = 1; i < 6; i++) {
+        ams[i].calcSampleStats();
+        ams[i].calcColorMatch();
       }
     } // SINGLE_SENSOR_ONLY
-
-    if (firstAms.isReady && secondAms.isReady && thirdAms.isReady) {
-      firstAms.calcSampleStats();
-      firstAms.calcColorMatch();
-      if (!SINGLE_SENSOR_ONLY) {
-        secondAms.calcSampleStats();
-        secondAms.calcColorMatch();
-        thirdAms.calcSampleStats();
-        thirdAms.calcColorMatch();
-      } // SINGLE_SENSOR_ONLY
-      readSensorState = WAIT_END;
-    }
+    readSensorState = WAIT_END;
   }
 
   if (readSensorState == WAIT_END) {
     if (!AUTOTRIGGER) {
       triggerValue = analogRead(THRESHOLD_ANALOG_PIN);
     } else {
-      triggerValue = highThreshold + 1;
+      triggerValue = lowThreshold - 1;
     }
     if (triggerValue < lowThreshold) {
       readSensorState = WAIT_START;
