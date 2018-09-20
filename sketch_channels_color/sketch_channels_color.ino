@@ -334,22 +334,7 @@ int readSensorState = WAIT_START;
 enum dialPins {
   dialPin1 = 0,
   dialPin2 = 1,
-  dialPin3 = 2,
-  dialPin4 = 3,
-  dialPin5 = 4,
-  dialPin6 = 5,
-  dialPin7 = 6,
-  dialPin8 = 7,
-  dialPin9 = 8,
-  dialPin10 = 9,
-  dialPin11 = 10,
-  dialPin12 = 11,
-  dialPin13 = 12,
-  dialPin14 = 13,
-  dialPin15 = 14,
-  dialPin16 = 15,
-  dialPin17 = 16,
-  dialPin18 = 17
+  dialPin3 = 2
 };
 
 
@@ -359,7 +344,7 @@ void setup() {
   // while(!Serial);
 
   // Set up inter-teensy board comm for color to channel mapping
-  Serial1.begin(9600);
+  // Serial1.begin(9600);
 
   // initialize digital pin LED_BUILTIN as an output indicator
   pinMode(LED_BUILTIN, OUTPUT);
@@ -368,15 +353,6 @@ void setup() {
   pinMode(dialPin1, INPUT);
   pinMode(dialPin2, INPUT);
   pinMode(dialPin3, INPUT);
-  pinMode(dialPin4, INPUT);
-  pinMode(dialPin5, INPUT);
-  pinMode(dialPin6, INPUT);
-  pinMode(dialPin7, INPUT);
-  pinMode(dialPin8, INPUT);
-  pinMode(dialPin9, INPUT);
-  pinMode(dialPin10, INPUT);
-  pinMode(dialPin11, INPUT);
-  pinMode(dialPin12, INPUT);
 #endif // NO_CHANGE_CHANNEL
   
   // Wire1 is i2c CLK=19, DATA=18
@@ -429,7 +405,7 @@ void loop() {
 #ifndef AUTOTRIGGER
     triggerValue = analogRead(THRESHOLD_ANALOG_PIN);
 #else
-    triggerValue = lowThreshold - 1;
+    triggerValue = highThreshold + 1;
 #endif
     // if under threshold, keep looking
     if (triggerValue > highThreshold) {
@@ -506,7 +482,7 @@ void loop() {
 #ifndef AUTOTRIGGER
     triggerValue = analogRead(THRESHOLD_ANALOG_PIN);
 #else
-    triggerValue = highThreshold + 1;
+    triggerValue = lowThreshold - 1;
 #endif
     if (triggerValue < lowThreshold) {
       readSensorState = WAIT_START;
@@ -514,54 +490,26 @@ void loop() {
 
 #ifndef NO_CHANGE_CHANNEL
       // read the color to channel switches here
-      int dialCode_v = digitalRead(dialPin1) + digitalRead(dialPin2) * 2 + digitalRead(dialPin3) * 4;
-      int dialCode_b = digitalRead(dialPin4) + digitalRead(dialPin5) * 2 + digitalRead(dialPin6) * 4;
-      int dialCode_g = digitalRead(dialPin7) + digitalRead(dialPin8) * 2 + digitalRead(dialPin9) * 4;
-      int dialCode_y = digitalRead(dialPin10) + digitalRead(dialPin11) * 2 + digitalRead(dialPin12) * 4;
-      int dialCode_r = digitalRead(dialPin13) + digitalRead(dialPin14) * 2 + digitalRead(dialPin15) * 4;
-      int dialCode_m = digitalRead(dialPin16) + digitalRead(dialPin17) * 2 + digitalRead(dialPin18) * 4;
+      int dialCode = digitalRead(dialPin1) + digitalRead(dialPin2) * 2 + digitalRead(dialPin3) * 4;
 
-      switch(dialCode_v){
-        case 1: color2Channel[violetChan] = 2; break;
-        case 2: color2Channel[violetChan] = 3; break;
-        case 4: color2Channel[violetChan] = 4; break;
+      // don't bother checking previous value and blindly set new channel
+      switch(dialCode){
+        case 1:
+          for (int idx = 0; idx < 6; idx++)
+            color2Channel[idx] = 2;
+          break;
+        case 2:
+          for (int idx = 0; idx < 6; idx++)
+            color2Channel[idx] = 3;
+          break;
+        case 4:
+          for (int idx = 0; idx < 6; idx++)
+            color2Channel[idx] = 4;
+          break;
         default:
-          color2Channel[violetChan] = 1;
-      }
-      switch(dialCode_b){
-        case 1: color2Channel[blueChan] = 2; break;
-        case 2: color2Channel[blueChan] = 3; break;
-        case 4: color2Channel[blueChan] = 4; break;
-        default:
-          color2Channel[blueChan] = 1;
-      }
-      switch(dialCode_g){
-        case 1: color2Channel[greenChan] = 2; break;
-        case 2: color2Channel[greenChan] = 3; break;
-        case 4: color2Channel[greenChan] = 4; break;
-        default:
-          color2Channel[greenChan] = 1;
-      }
-      switch(dialCode_y){
-        case 1: color2Channel[yellowChan] = 2; break;
-        case 2: color2Channel[yellowChan] = 3; break;
-        case 4: color2Channel[yellowChan] = 4; break;
-        default:
-          color2Channel[yellowChan] = 1;
-      }
-      switch(dialCode_r){
-        case 1: color2Channel[redChan] = 2; break;
-        case 2: color2Channel[redChan] = 3; break;
-        case 4: color2Channel[redChan] = 4; break;
-        default:
-          color2Channel[redChan] = 1;
-      }
-      switch(dialCode_m){
-        case 1: color2Channel[magentaChan] = 2; break;
-        case 2: color2Channel[magentaChan] = 3; break;
-        case 4: color2Channel[magentaChan] = 4; break;
-        default:
-          color2Channel[magentaChan] = 1;
+          for (int idx = 0; idx < 6; idx++)
+            color2Channel[idx] = 1;
+          break;
       }
 #endif // NO_CHANGE_CHANNEL
     } else {
