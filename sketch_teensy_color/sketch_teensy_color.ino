@@ -6,7 +6,8 @@
  ***************************************************************************/
 
 /*
-   Current limited to 12.5mA?
+   Current limited to 25mA per LED?
+   We should really try 50mA
    Integration time
 */
 
@@ -16,6 +17,11 @@
 // Threshold limits of an obstacle on light break detector
 int lowThreshold = 300; // 150;  // May change with timer peg and sensor relocation
 int highThreshold = 500; // 500;
+
+// After a read is initiated, a sensor needs time to perform the reading and populate the buffers.
+// In UART mode, no status register is available - we just need to wait.
+// Increase this if erroneous 0's are reported for some or all channels.
+#define READ_TIME 30 // Milliseconds
 
 // TEST TEST TEST: uncomment the following to not wait for start/stop signal
 #define AUTOTRIGGER false
@@ -166,11 +172,12 @@ bool ColorSensor::begin() {
   if (runCommand("AT")) Serial.println("Detected sensor");
   else Serial.println("Didn't detect sensor!!");
 
-  if (runCommand("ATTCSMD=3") && // doing one-shot mode
-      runCommand("ATINTTIME=1") && // This would be N * 5.6ms since filling both banks
-      runCommand("ATGAIN=3") && // require high gain for short integration times
-      runCommand("ATLEDC=00010001") && // Set LED current to 50mA for flashlight and 4mA for indicator
-      runCommand("ATLED1=100")) { // Turn on flashlight
+  if (runCommand("ATTCSMD=3") && // Switch to one-shot mode - stop continually reading
+      runCommand("ATINTTIME=1") && // Set integration time to 5.6ms - read time is 2.8ms per bank
+      runCommand("ATGAIN=3") && // 64x gain - required for short integration times
+      runCommand("ATLEDC=00010001") && // Set LED current to 25mA for illumination and 4mA for indicator
+      //runCommand("ATLEDC=00100001") && // Set LED current to 50mA for illumination and 4mA for indicator
+      runCommand("ATLED1=100")) { // Turn on illuminator LED
     Serial.println("Configured successfully");
     return true;
   }
@@ -390,6 +397,8 @@ void ColorSensor::calcColorMatch(void) {
 }
 
 void ColorSensor::startMeasurement() {
+  // In UART mode, the Set Mode command initiates a one-shot reading.
+  // Debug output disabled because this gets run A LOT
   runCommand("ATTCSMD=3", false);
 }
 
@@ -443,8 +452,6 @@ void setup() {
 
   delay(1000);
 
-  Serial.println("Sanity");
-
   // while(!Serial);
 
   // initialize digital pin LED_BUILTIN as an output indicator
@@ -469,11 +476,11 @@ void setup() {
   if (!SINGLE_SENSOR_ONLY) {
     for (int i = 1; i < 6; i++) {
       Serial.print("Init AMS #");
-      Serial.println(i);
+      Serial.println(i + 1);
 
       for (; !ams[i].begin();) {
         Serial.print("could not connect to sensor #");
-        Serial.print(i);
+        Serial.print(i + 1);
         Serial.println("! Please check your wiring.");
         delay(30000);
       }
@@ -531,7 +538,7 @@ void loop() {
         ams[i].startMeasurement();
       }
     } // SINGLE_SENSOR_ONLY
-    delay(30); // Hardcoded delay - no dataReady() available for UART
+    delay(READ_TIME); // Hardcoded delay - no dataReady() available for UART
     readSensorState = SEND_REPORT;
   }
 
