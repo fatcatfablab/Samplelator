@@ -1,5 +1,18 @@
 /***************************************************************************
-   This is based on the example from Adafruit AS726x library on Teensy 3.6.
+   Samplelator Firmware
+   Copyright 2018 Fat Cat Fab Lab, all rights reserved
+   Contributors:
+   - Peter Hartmann
+   - Gil Nardo
+   - Zack Freedman
+
+   Hardware:
+   Board: Teensy 3.6
+   CPU Speed: 180MHz
+   USB Mode: Serial + MIDI
+
+   Pinout: I/O Board v1
+   
    This version **does not** use neopixels as those need 5 volts.
    This uses the IR "line break" detector analog input.
    The color detection algorithm is tuned for our sample swatches.
