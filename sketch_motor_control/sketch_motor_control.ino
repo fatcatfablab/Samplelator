@@ -1,5 +1,5 @@
 /*
- * Samplelator speed control.
+ * Samplelator speed control, using Arduino Mega (Adjusted PWN FREQ!!).
 */
 
 #include "DualVNH5019MotorShield.h"
@@ -40,7 +40,9 @@ unsigned char got2Fault = 0;
 
 
 void setup() {
-  // declare the ledPin as an OUTPUT:
+  TCCR2B = (TCCR2B & 0b11111000) | 0x01;
+ 
+   // declare the ledPin as an OUTPUT:
   pinMode(ledPin, OUTPUT);
   Serial.begin(115200); 
   motor.init(); 
