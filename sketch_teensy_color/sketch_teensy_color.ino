@@ -40,7 +40,7 @@ int highThreshold = 500; // 500;
 #define AUTOTRIGGER false
 
 // TEST TEST TEST: uncomment to disable color to channel changes
-#define NO_CHANNEL_CHANGES true
+#define NO_CHANNEL_CHANGES false
 
 // TEST TEST TEST: uncomment one of the following for display to serial options
 #define ORDER_BY_VALUE false
@@ -311,6 +311,7 @@ void ColorSensor::sendMidiOn(const char *colorInd, int useNote) {
   else
     lastChan = unknownChan;
   if (useNote > 0) {
+   //Serial.println(lastChan);
     usbMIDI.sendNoteOn(lastNote, 99, lastChan);
   } else if (useNote == 0) {
     // usbMIDI.sendNoteOn(39, 99, 1); // debug break detect
