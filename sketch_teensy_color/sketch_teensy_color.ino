@@ -486,6 +486,12 @@ void setup() {
   } // NO_CHANGE_CHANNEL
 
   //begin and make sure we can talk to the sensors
+  Serial.println("Init AMS #0");
+  for (; !ams[0].begin();) {
+    Serial.println("could not connect to first sensor! Please check your wiring.");
+    delay(30000);
+  }
+  
   if (!SINGLE_SENSOR_ONLY) {
     for (int i = 1; i < 6; i++) {
       Serial.print("Init AMS #");
@@ -499,12 +505,7 @@ void setup() {
       }
     }
   } // SINGLE_SENSOR_ONLY
-  Serial.println("Init AMS #0");
-  for (; !ams[0].begin();) {
-    Serial.println("could not connect to first sensor! Please check your wiring.");
-    delay(30000);
-  }
-
+ 
   Serial.println("Waiting for start sample...");
 }
 
