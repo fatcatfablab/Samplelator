@@ -24,7 +24,7 @@ DualVNH5019MotorShield motor(2, 7, 9, 6, A0, 2, 7, 9, 12, A1);
 // #define MAXBLINK_INTERVAL 10000    // For Teensy 3.6
 #define MAXBLINK_INTERVAL 10    // For Arduino Uno
 
-int speedPin = A4;    // select the input pin for the potentiometer
+int speedPin = A3;    // select the input pin for the potentiometer
 int ledPin = 13;      // select the pin for the LED
   // Pin 13: Arduino has an LED connected on pin 13
   // Pin 11: Teensy 2.0 has the LED on pin 11
